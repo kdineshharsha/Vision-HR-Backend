@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cors from "cors";
 import userRouter from "./routes/userRouter.js";
+import attendanceRouter from "./routes/attendanceRouter.js";
 const app = express();
 
 app.use(helmet());
@@ -19,6 +20,7 @@ const limiter = rateLimit({
 });
 app.use("/api", limiter);
 app.use("/api/users", userRouter);
+app.use("/api/attendance", attendanceRouter);
 app.use(cors());
 
 app.use((err, req, res, next) => {
