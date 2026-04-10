@@ -11,17 +11,17 @@ app.use(helmet());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
-app.use(express.json({ limit: "10kb" }));
+app.use(express.json({ limit: "50kb" }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
+app.use(cors());
 app.use("/api", limiter);
 app.use("/api/users", userRouter);
 app.use("/api/attendance", attendanceRouter);
-app.use(cors());
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

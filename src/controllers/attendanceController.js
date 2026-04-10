@@ -1,13 +1,15 @@
 import mongoose from "mongoose";
 import User from "../models/users.js";
-import { format, parse, addMinutes } from "date-fns";
+import { format, parse, addMinutes, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import Attendance from "../models/attendance.js";
 export const markAttendance = async (req, res, next) => {
   try {
-    const { emp_id } = req.body;
-    const now = new Date();
-    const currentDate = format(now, "yyyy-MM-dd");
-    const currentTime = format(now, "HH:mm:ss");
+    const { emp_id, timestamp } = req.body;
+    console.log("Received attendance data:", { emp_id, timestamp });
+    const scanTime = parseISO(timestamp);
+    const currentDate = format(scanTime, "yyyy-MM-dd");
+    const currentTime = format(scanTime, "HH:mm:ss");
 
     const user = await User.findOne({ emp_id });
     if (!user) {
@@ -34,35 +36,21 @@ export const markAttendance = async (req, res, next) => {
         user: user._id,
         emp_id: user.emp_id,
         date: currentDate,
-        checkIn: now,
+        checkIn: scanTime,
         status: isLate ? "Late" : "Present",
       });
       return res
         .status(201)
         .json({ status: "IN", time: currentTime, attendance });
     } else {
-      if (attendance.checkOut) {
-        return res.status(400).json({ message: "Already checked out" });
-      }
-
-      const shiftEnd = "17:00:00";
-      const isShiftEnd = currentTime >= shiftEnd;
-
-      if (isShiftEnd) {
-        attendance.checkOut = now;
-        const diffInMs = attendance.checkOut - attendance.checkIn;
-        attendance.workHours = diffInMs / (1000 * 60 * 60).toFixed(2);
-        await attendance.save();
-        return res
-          .status(200)
-          .json({ status: "OUT", time: currentTime, attendance });
-      } else {
-        return res
-          .status(400)
-          .json({ message: "You can't check out before 5 !" });
-      }
+      attendance.checkOut = scanTime;
+      const diffInMs = attendance.checkOut - attendance.checkIn;
+      attendance.workHours = diffInMs / (1000 * 60 * 60).toFixed(2);
+      await attendance.save();
+      return res.status(200).json({ success: true, status: "OUT", attendance });
     }
   } catch (error) {
+    console.error(error);
     next(error);
   }
 };
@@ -96,6 +84,56 @@ export const getAttendanceByDateRange = async (req, res, next) => {
       status: "success",
       count: attendanceRecords.length,
       data: attendanceRecords,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDailyAttendance = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const today = format(now, "yyyy-MM-dd");
+
+    const dailyRecords = await Attendance.find({ date: today })
+      .populate("user", "name email designation")
+      .sort({ checkIn: -1 });
+    const timeZone = "Asia/Colombo";
+
+    const formattedData = dailyRecords.map((record) => {
+      const in_time = record.checkIn
+        ? formatInTimeZone(new Date(record.checkIn), timeZone, "HH:mm:ss")
+        : "--";
+
+      const out_time = record.checkOut
+        ? formatInTimeZone(new Date(record.checkOut), timeZone, "HH:mm:ss")
+        : "--";
+
+      let leave_type = null;
+      if (record.status === "Half-Day") {
+        leave_type = "Early Leave";
+      } else if (
+        record.status === "On Leave" ||
+        record.status === "Medical Leave"
+      ) {
+        leave_type = "Medical";
+      }
+
+      return {
+        user_id: record.emp_id || "--",
+        name: record.user ? record.user.name : "Unknown",
+        in_time: in_time,
+        out_time: out_time,
+        leave_type: leave_type,
+        status: record.status || "Present",
+      };
+    });
+
+    return res.status(200).json({
+      status: "success",
+      date: today,
+      count: formattedData.length,
+      data: formattedData,
     });
   } catch (error) {
     next(error);

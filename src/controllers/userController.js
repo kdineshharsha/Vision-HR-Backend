@@ -2,20 +2,29 @@ import User from "../models/users.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+import { daysInWeek } from "date-fns/constants";
 dotenv.config();
 
 export const registerUser = async (req, res, next) => {
   try {
-    const { emp_id, name, email, password, role, designation, basic_salary } =
-      req.body;
+    let {
+      emp_id,
+      name,
+      email,
+      designation,
+      basic_salary,
+      face_embedding,
+      role,
+      password,
+    } = req.body;
 
     if (
       !emp_id ||
       !name ||
       !email ||
-      !password ||
       !designation ||
-      !basic_salary
+      !basic_salary ||
+      !face_embedding
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
@@ -27,15 +36,18 @@ export const registerUser = async (req, res, next) => {
         .status(409)
         .json({ message: "Employee ID or email already exists" });
     }
+
+    if (!password) password = emp_id;
     const hashedPassword = bcrypt.hashSync(password, 10);
     const user = new User({
-      emp_id,
-      name,
-      email,
+      emp_id: emp_id,
+      name: name,
+      email: email.toLowerCase(),
       password: hashedPassword,
       role,
-      designation,
-      basic_salary,
+      designation: designation,
+      basic_salary: basic_salary,
+      face_embeddings: face_embedding,
     });
 
     await user.save();
@@ -52,6 +64,7 @@ export const registerUser = async (req, res, next) => {
       },
     });
   } catch (error) {
+    console.error("Error registering user:", error);
     next(error);
   }
 };
@@ -68,12 +81,11 @@ export const loginUser = async (req, res, next) => {
     const isPasswordCorrect = bcrypt.compareSync(password, user.password);
     if (isPasswordCorrect) {
       const userData = {
-        _id: user._id,
-        emp_id: user.emp_id,
+        user_id: user.emp_id,
         name: user.name,
-        email: user.email,
-        role: user.role,
-        designation: user.designation,
+        in_time: user.checkIn,
+        out_time: user.checkOut,
+        leave_type: user.status,
       };
 
       console.log(process.env.JWT_SECRET);
@@ -86,6 +98,26 @@ export const loginUser = async (req, res, next) => {
     } else {
       res.status(401).json({ message: "Invalid credentials" });
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find().select("-password");
+    if (!users || users.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No users found in the database",
+        data: [],
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Users retrieved successfully",
+      data: users,
+    });
   } catch (error) {
     next(error);
   }
