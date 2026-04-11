@@ -122,3 +122,34 @@ export const getAllUsers = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateUser = async (req, res, next) => {
+  try {
+    const emp_id = req.params.emp_id;
+    const updateData = req.body;
+
+    const updatedUser = await User.findOneAndUpdate(
+      { emp_id },
+      { $set: updateData },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    next(error);
+  }
+};
+
+//

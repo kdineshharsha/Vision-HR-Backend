@@ -3,6 +3,7 @@ import User from "../models/users.js";
 import { format, parse, addMinutes, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import Attendance from "../models/attendance.js";
+import Leave from "../models/leaves.js";
 export const markAttendance = async (req, res, next) => {
   try {
     const { emp_id, timestamp } = req.body;
@@ -134,6 +135,39 @@ export const getDailyAttendance = async (req, res, next) => {
       date: today,
       count: formattedData.length,
       data: formattedData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDashboardStats = async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const totalEmployees = await User.countDocuments();
+
+    const presentCount = await Attendance.countDocuments({ date: today });
+
+    const lateCount = await Attendance.countDocuments({
+      date: today,
+      status: "Late",
+    });
+
+    const leaveCount = await Leave.countDocuments({
+      startDate: { $lte: new Date(today) },
+      endDate: { $gte: new Date(today) },
+      status: "Approved",
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalEmployees,
+        present: presentCount,
+        late: lateCount,
+        onLeave: leaveCount,
+        absent: totalEmployees - presentCount - leaveCount,
+      },
     });
   } catch (error) {
     next(error);
