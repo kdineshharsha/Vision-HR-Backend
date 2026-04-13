@@ -18,6 +18,55 @@ export const applyLeave = async (req, res, next) => {
         .json({ message: "Leave already applied for this date" });
     }
 
+    switch (leave_type) {
+      case "Annual":
+        if (user.leave_balance.annual_leaves <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient Annual leave balance.",
+          });
+        }
+        user.leave_balance.annual_leaves -= 1;
+        break;
+
+      case "Medical":
+        if (user.leave_balance.medical_leaves <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient Medical leave balance.",
+          });
+        }
+        user.leave_balance.medical_leaves -= 1;
+        break;
+
+      case "Casual":
+        if (user.leave_balance.casual_leaves <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient Casual leave balance.",
+          });
+        }
+        user.leave_balance.casual_leaves -= 1;
+        break;
+
+      case "Short Leave":
+        if (user.leave_balance.short_leaves <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: "Insufficient Short leave balance.",
+          });
+        }
+        user.leave_balance.short_leaves -= 1;
+        break;
+
+      default:
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid leave type provided." });
+    }
+
+    await user.save();
+
     const leave = new Leave({
       user: user._id,
       emp_id: user.emp_id,
@@ -47,6 +96,50 @@ export const getAllLeaves = async (req, res, next) => {
       message: "Leaves retrieved successfully",
       data: leaves,
     });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
+export const updateLeaveStatus = async (req, res, next) => {
+  try {
+    const { leave_id, status } = req.body;
+    const leave = await Leave.findById(leave_id);
+    if (!leave) {
+      return res.status(404).json({ message: "Leave not found" });
+    }
+    leave.status = status;
+    await leave.save();
+    res.status(200).json({
+      success: true,
+      message: "Leave status updated successfully",
+      leave,
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+};
+
+export const getLeavesByDateRange = async (req, res, next) => {
+  try {
+    const { start_date, end_date } = req.query;
+
+    if (!start_date || !end_date) {
+      return res
+        .status(400)
+        .json({ message: "Start date and end date are required" });
+    }
+
+    const leaves = await Leave.find({
+      date: {
+        $gte: start_date,
+        $lte: end_date,
+      },
+    })
+      .populate("user", "name ")
+      .sort({ date: 1, checkIn: 1 });
   } catch (error) {
     console.error(error);
     next(error);

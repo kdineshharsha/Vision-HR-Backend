@@ -38,14 +38,36 @@ const userSchema = new mongoose.Schema({
     type: [Number],
     default: [],
   },
+
+  status: {
+    type: String,
+    enum: ["Active", "Suspended", "Resigned"],
+    default: "Active",
+  },
+  resigned_date: {
+    type: String,
+    default: null,
+  },
+  joined_date: {
+    type: String,
+    default: new Date().toISOString().split("T")[0],
+  },
   leave_balance: {
     casual_leaves: {
       type: Number,
-      default: 12,
+      default: 7,
+    },
+    annual_leaves: {
+      type: Number,
+      default: 14,
     },
     short_leaves: {
       type: Number,
       default: 2,
+    },
+    medical_leaves: {
+      type: Number,
+      default: 7,
     },
   },
 });

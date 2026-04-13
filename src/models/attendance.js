@@ -30,6 +30,14 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    late_minutes: {
+      type: Number,
+      default: 0,
+    },
+    ot_minutes: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );

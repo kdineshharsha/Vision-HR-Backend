@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
 import User from "../models/users.js";
-import { format, parse, addMinutes, parseISO } from "date-fns";
+import {
+  format,
+  parse,
+  addMinutes,
+  parseISO,
+  differenceInMinutes,
+} from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import Attendance from "../models/attendance.js";
 import Leave from "../models/leaves.js";
@@ -24,7 +30,9 @@ export const markAttendance = async (req, res, next) => {
 
     if (!attendance) {
       const shiftStart = "08:00:00";
+      const shiftEnd = "17:00:00";
       const gracePeriod = 5;
+      const shiftStartTimeDate = parse(shiftStart, "HH:mm:ss", scanTime);
       const startTimeDate = parse(shiftStart, "HH:mm:ss", new Date());
 
       const thresholdDate = addMinutes(startTimeDate, gracePeriod);
@@ -33,22 +41,47 @@ export const markAttendance = async (req, res, next) => {
 
       const isLate = currentTime > lateThreshold;
 
+      let late_time = 0;
+
+      if (isLate) {
+        late_time = differenceInMinutes(scanTime, shiftStartTimeDate);
+      }
+
       attendance = await Attendance.create({
         user: user._id,
         emp_id: user.emp_id,
         date: currentDate,
         checkIn: scanTime,
         status: isLate ? "Late" : "Present",
+        late_minutes: late_time,
+        ot_minutes: 0,
       });
       return res
         .status(201)
         .json({ status: "IN", time: currentTime, attendance });
     } else {
+      const min_ot_minutes = 60;
+      let ot_minutes = 0;
+      const shiftEnd = "17:00:00";
+      const shiftEndTimeDate = parse(shiftEnd, "HH:mm:ss", scanTime);
+      if (scanTime > shiftEndTimeDate) {
+        const extra_minutes = differenceInMinutes(scanTime, shiftEndTimeDate);
+
+        if (extra_minutes >= min_ot_minutes) {
+          ot_minutes = extra_minutes;
+        } else {
+          ot_minutes = 0;
+        }
+      }
       attendance.checkOut = scanTime;
+      attendance.ot_minutes = ot_minutes;
+
       const diffInMs = attendance.checkOut - attendance.checkIn;
       attendance.workHours = diffInMs / (1000 * 60 * 60).toFixed(2);
       await attendance.save();
-      return res.status(200).json({ success: true, status: "OUT", attendance });
+      return res
+        .status(200)
+        .json({ success: true, status: "OUT", data: attendance });
     }
   } catch (error) {
     console.error(error);
@@ -154,8 +187,8 @@ export const getDashboardStats = async (req, res, next) => {
     });
 
     const leaveCount = await Leave.countDocuments({
-      startDate: { $lte: new Date(today) },
-      endDate: { $gte: new Date(today) },
+      date: { $lte: new Date(today) },
+
       status: "Approved",
     });
 
@@ -172,4 +205,45 @@ export const getDashboardStats = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+export const getDetailedAttendanceReport = async (req, res, next) => {
+  try {
+    const { start_date, end_date } = req.query;
+    if (!start_date || !end_date) {
+      return res
+        .status(400)
+        .json({ message: "Start date and end date are required" });
+    }
+
+    const attendanceRecords = await Attendance.find({
+      date: {
+        $gte: start_date,
+        $lte: end_date,
+      },
+    })
+      .populate("user", "name ")
+      .sort({ date: 1 });
+    const timeZone = "Asia/Colombo";
+    const reportData = attendanceRecords.map((record) => {
+      const in_time = record.checkIn
+        ? formatInTimeZone(new Date(record.checkIn), timeZone, "HH:mm:ss")
+        : "--";
+      const out_time = record.checkOut
+        ? formatInTimeZone(new Date(record.checkOut), timeZone, "HH:mm:ss")
+        : "--";
+
+      return {
+        emp_id: record.emp_id || "--",
+        name: record.user ? record.user.name : "Unknown",
+        date: record.date,
+        in_time: in_time,
+        out_time: out_time,
+        late_minutes: record.late_minutes || 0,
+        ot_minutes: record.ot_minutes || 0,
+        status: record.status || "Present",
+      };
+    });
+    res.status(200).json({ data: reportData });
+  } catch (error) {}
 };
