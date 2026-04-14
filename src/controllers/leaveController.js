@@ -1,5 +1,7 @@
 import Leave from "../models/leaves.js";
 import User from "../models/users.js";
+import { leaveRejectedTemplate } from "../utils/emailTemplates.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 export const applyLeave = async (req, res, next) => {
   try {
@@ -110,6 +112,21 @@ export const updateLeaveStatus = async (req, res, next) => {
       return res.status(404).json({ message: "Leave not found" });
     }
     leave.status = status;
+    if (status === "Rejected") {
+      const user = await User.findById(leave.user);
+      const emailHtml = leaveRejectedTemplate(
+        user.name,
+        leave.date.toISOString().split("T")[0],
+        leave.leave_type,
+        leave.reason || "No reason provided",
+      );
+      // console.log(emailHtml);
+      await sendEmail(
+        user.email,
+        `Leave Application Rejected for ${leave.date.toISOString().split("T")[0]}`,
+        emailHtml,
+      );
+    }
     await leave.save();
     res.status(200).json({
       success: true,

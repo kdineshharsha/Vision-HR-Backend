@@ -10,6 +10,9 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import Attendance from "../models/attendance.js";
 import Leave from "../models/leaves.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import { lateWarningTemplate } from "../utils/emailTemplates.js";
+
 export const markAttendance = async (req, res, next) => {
   try {
     const { emp_id, timestamp } = req.body;
@@ -30,7 +33,6 @@ export const markAttendance = async (req, res, next) => {
 
     if (!attendance) {
       const shiftStart = "08:00:00";
-      const shiftEnd = "17:00:00";
       const gracePeriod = 5;
       const shiftStartTimeDate = parse(shiftStart, "HH:mm:ss", scanTime);
       const startTimeDate = parse(shiftStart, "HH:mm:ss", new Date());
@@ -45,6 +47,16 @@ export const markAttendance = async (req, res, next) => {
 
       if (isLate) {
         late_time = differenceInMinutes(scanTime, shiftStartTimeDate);
+        const emailHtml = lateWarningTemplate(
+          user.name,
+          currentDate,
+          late_time,
+        );
+        await sendEmail(
+          user.email,
+          "Attendance Alert: Late Check-In Detected",
+          emailHtml,
+        );
       }
 
       attendance = await Attendance.create({
