@@ -7,6 +7,7 @@ import userRouter from "./routes/userRouter.js";
 import attendanceRouter from "./routes/attendanceRouter.js";
 import leaveRouter from "./routes/leaveRouter.js";
 import payrollRouter from "./routes/payrollRouter.js";
+import settingsRouter from "./routes/settingsRouter.js";
 const app = express();
 
 app.use(helmet());
@@ -26,6 +27,7 @@ app.use("/api/users", userRouter);
 app.use("/api/attendance", attendanceRouter);
 app.use("/api/leaves", leaveRouter);
 app.use("/api/payroll", payrollRouter);
+app.use("/api/settings", settingsRouter);
 
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;

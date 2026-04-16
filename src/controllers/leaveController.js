@@ -120,7 +120,7 @@ export const updateLeaveStatus = async (req, res, next) => {
         leave.leave_type,
         leave.reason || "No reason provided",
       );
-      // console.log(emailHtml);
+
       await sendEmail(
         user.email,
         `Leave Application Rejected for ${leave.date.toISOString().split("T")[0]}`,
@@ -157,6 +157,21 @@ export const getLeavesByDateRange = async (req, res, next) => {
     })
       .populate("user", "name ")
       .sort({ date: 1, checkIn: 1 });
+
+    const formattedData = leaves.map((leave) => ({
+      emp_id: leave.emp_id,
+      name: leave.user.name,
+      date: leave.date.toISOString().split("T")[0],
+      leave_type: leave.leave_type,
+      reason: leave.reason,
+      status: leave.status,
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: `Leaves from ${start_date} to ${end_date} retrieved successfully`,
+      data: formattedData,
+    });
   } catch (error) {
     console.error(error);
     next(error);

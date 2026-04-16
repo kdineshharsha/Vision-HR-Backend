@@ -18,6 +18,10 @@ const settingSchema = new mongoose.Schema(
       type: Number,
       default: 30,
     },
+    standard_working_days: {
+      type: Number,
+      default: 22,
+    },
   },
   { timestamps: true },
 );

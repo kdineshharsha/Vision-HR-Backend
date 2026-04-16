@@ -1,4 +1,3 @@
-// --- 1. Leave Approved Template (නිවාඩු අනුමත කළ විට) ---
 export const leaveApprovedTemplate = (employeeName, leaveDate, leaveType) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
@@ -21,7 +20,6 @@ export const leaveApprovedTemplate = (employeeName, leaveDate, leaveType) => {
   `;
 };
 
-// --- 2. Leave Rejected Template (නිවාඩු ප්‍රතික්ෂේප කළ විට) ---
 export const leaveRejectedTemplate = (
   employeeName,
   leaveDate,
@@ -50,7 +48,6 @@ export const leaveRejectedTemplate = (
   `;
 };
 
-// --- 3. Late Attendance Warning Template (නිතර පරක්කු වන විට Warning එකක්) ---
 export const lateWarningTemplate = (employeeName, date, lateMinutes) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
