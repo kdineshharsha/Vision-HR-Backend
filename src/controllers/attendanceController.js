@@ -259,3 +259,59 @@ export const getDetailedAttendanceReport = async (req, res, next) => {
     res.status(200).json({ data: reportData });
   } catch (error) {}
 };
+
+export const getMyAttendance = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const currentDate = new Date();
+    const month = req.query.month
+      ? parseInt(req.query.month)
+      : currentDate.getMonth() + 1;
+    const year = req.query.year
+      ? parseInt(req.query.year)
+      : currentDate.getFullYear();
+
+    const firstDay = new Date(year, month - 1, 1).toISOString().split("T")[0];
+    const lastDay = new Date(year, month, 0).toISOString().split("T")[0];
+
+    const myAttendance = await Attendance.find({
+      user: userId,
+      date: { $gte: firstDay, $lte: lastDay },
+    }).sort({ date: -1 });
+
+    const timeZone = "Asia/Colombo";
+
+    const formattedData = myAttendance.map((record) => {
+      const in_time = record.checkIn
+        ? formatInTimeZone(new Date(record.checkIn), timeZone, "HH:mm:ss")
+        : "--";
+
+      const out_time = record.checkOut
+        ? formatInTimeZone(new Date(record.checkOut), timeZone, "HH:mm:ss")
+        : "--";
+
+      return {
+        _id: record._id,
+        date: record.date,
+        in_time: in_time,
+        out_time: out_time,
+        late_minutes: record.late_minutes || 0,
+        ot_minutes: record.ot_minutes || 0,
+        work_hours: record.workHours || 0,
+        status: record.status || "Present",
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      month: month,
+      year: year,
+      count: formattedData.length,
+      data: formattedData,
+    });
+  } catch (error) {
+    console.error("Get My Attendance Error:", error);
+    next(error);
+  }
+};
