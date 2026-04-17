@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
 import { daysInWeek } from "date-fns/constants";
+import Attendance from "../models/attendance.js";
+import Leave from "../models/leaves.js";
 dotenv.config();
 
 export const registerUser = async (req, res, next) => {
@@ -81,6 +83,7 @@ export const loginUser = async (req, res, next) => {
     const isPasswordCorrect = bcrypt.compareSync(password, user.password);
     if (isPasswordCorrect) {
       const userData = {
+        id: user._id,
         user_id: user.emp_id,
         name: user.name,
         in_time: user.checkIn,
@@ -88,7 +91,6 @@ export const loginUser = async (req, res, next) => {
         leave_type: user.status,
       };
 
-      console.log(process.env.JWT_SECRET);
       const token = jwt.sign(userData, process.env.JWT_SECRET, {
         expiresIn: "30d",
       });
@@ -153,3 +155,71 @@ export const updateUser = async (req, res, next) => {
 };
 
 //
+
+export const getDashboardStats = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const date = new Date();
+    const today = date.toISOString().split("T")[0];
+
+    const todayRecord = await Attendance.findOne({ user: userId, date: today });
+    console.log("Today's Attendance Record:", todayRecord);
+    let today_status = "Not Punched Yet";
+    let in_time = "--";
+
+    if (todayRecord) {
+      today_status = "IN";
+      in_time = todayRecord.in_time;
+    }
+
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+      .toISOString()
+      .split("T")[0];
+
+    const thisMonthAttendance = await Attendance.find({
+      user: userId,
+      date: { $gte: firstDay, $lte: lastDay },
+    });
+
+    let late_days = 0;
+    let total_ot_minutes = 0;
+
+    thisMonthAttendance.forEach((record) => {
+      if (record.late_minutes > 0) late_days++;
+      if (record.ot_minutes > 0) total_ot_minutes += record.ot_minutes;
+    });
+
+    const ot_hours = (total_ot_minutes / 60).toFixed(1);
+
+    const currentUser = await User.findById(userId).select("leave_balance");
+
+    let available_leaves = 0;
+    if (currentUser && currentUser.leave_balance) {
+      const { casual_leaves, annual_leaves } = currentUser.leave_balance;
+      available_leaves = casual_leaves + annual_leaves;
+    }
+
+    const recent_attendance = await Attendance.find({ user: userId })
+      .sort({ date: -1 })
+      .limit(5)
+      .select("date in_time out_time late_minutes ot_minutes status");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        today_status,
+        in_time,
+        late_days_this_month: late_days,
+        ot_hours_this_month: ot_hours,
+        available_leaves,
+        recent_attendance,
+      },
+    });
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+    next(error);
+  }
+};

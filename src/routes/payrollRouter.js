@@ -6,7 +6,7 @@ import {
 
 const payrollRouter = express.Router();
 
-payrollRouter.get("/generate", generateBulkPayroll);
+payrollRouter.post("/generate", generateBulkPayroll);
 payrollRouter.get("/report", getPayrollReport);
 
 export default payrollRouter;
