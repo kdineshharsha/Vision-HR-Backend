@@ -114,6 +114,19 @@ export const updateLeaveStatus = async (req, res, next) => {
     leave.status = status;
     if (status === "Rejected") {
       const user = await User.findById(leave.user);
+      if (user && user.leave_balance) {
+        const type = leave.leave_type;
+
+        if (type === "Casual" || type === "Casual Leave") {
+          user.leave_balance.casual_leaves += 1;
+        } else if (type === "Annual" || type === "Annual Leave") {
+          user.leave_balance.annual_leaves += 1;
+        } else if (type === "Short Leave") {
+          user.leave_balance.short_leaves += 1;
+        }
+
+        await user.save();
+      }
       const emailHtml = leaveRejectedTemplate(
         user.name,
         leave.date.toISOString().split("T")[0],
@@ -127,6 +140,7 @@ export const updateLeaveStatus = async (req, res, next) => {
         emailHtml,
       );
     }
+
     await leave.save();
     res.status(200).json({
       success: true,

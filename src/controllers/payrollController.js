@@ -233,3 +233,32 @@ export const getPayrollReport = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getMyPayslips = async (req, res, next) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { year, month } = req.query;
+
+    let query = { user: userId };
+
+    if (year && month && month !== "All") {
+      const formattedMonth = month.toString().padStart(2, "0");
+      query.month = `${year}-${formattedMonth}`;
+    } else if (year) {
+      query.month = { $regex: `^${year}` };
+    }
+
+    const myPayslips = await Payroll.find(query)
+      .populate("user", "name designation emp_id")
+      .sort({ month: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: myPayslips.length,
+      data: myPayslips,
+    });
+  } catch (error) {
+    console.error("Fetch My Payslips Error:", error);
+    next(error);
+  }
+};
