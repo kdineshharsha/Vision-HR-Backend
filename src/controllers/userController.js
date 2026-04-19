@@ -17,7 +17,6 @@ export const registerUser = async (req, res, next) => {
 
   try {
     let {
-      emp_id,
       name,
       email,
       designation,
@@ -27,18 +26,11 @@ export const registerUser = async (req, res, next) => {
       password,
     } = req.body;
 
-    if (
-      !emp_id ||
-      !name ||
-      !email ||
-      !designation ||
-      !basic_salary ||
-      !face_embedding
-    ) {
+    if (!name || !email || !designation || !basic_salary || !face_embedding) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingUser = await User.findOne({ $or: [{ emp_id }, { email }] });
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res
@@ -46,10 +38,24 @@ export const registerUser = async (req, res, next) => {
         .json({ message: "Employee ID or email already exists" });
     }
 
+    const lastUser = await User.findOne()
+      .sort({ emp_id: { $regex: /^EMP_/ } })
+      .sort({ _id: -1 });
+
+    let newEmpId = "EMP_001";
+
+    if (lastUser && lastUser.emp_id) {
+      const lastEmpIdNum = parseInt(lastUser.emp_id.split("_")[1], 10);
+      if (!isNaN(lastEmpIdNum)) {
+        const nextEmpIdNum = lastEmpIdNum + 1;
+        newEmpId = `EMP_${String(nextEmpIdNum).padStart(3, "0")}`;
+      }
+    }
+
     if (!password) password = emp_id;
     const hashedPassword = bcrypt.hashSync(password, 10);
     const user = new User({
-      emp_id: emp_id,
+      emp_id: newEmpId,
       name: name,
       email: email.toLowerCase(),
       password: hashedPassword,
